@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# We want to avoid private data to be pushed
+*.txt
+*.csv
+*.xls
+*.xlsx
+
 # C extensions
 *.so
 
