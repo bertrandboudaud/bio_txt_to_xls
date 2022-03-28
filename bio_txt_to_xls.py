@@ -25,6 +25,7 @@ import pathlib
 from numpy import NaN
 import pandas as pd
 import xlsxwriter
+import copy
 
 parser = argparse.ArgumentParser(description='bio_txt_toxls, script to ease analisys from a csv file to excel file.',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -36,10 +37,6 @@ parser.add_argument('Input',
 parser.add_argument('Output',
                     type=pathlib.Path,
                     help='.xlsx file')
-#parser.add_argument('Features',
-#                    type=str,
-#                    default="detect",
-#                    help='List of features to expose')
 
 column_mapping = [
 #   Excel column names              Txt file column names
@@ -90,19 +87,28 @@ print(dataTypeSeries)
 # write excel file
 workbook = xlsxwriter.Workbook(args.Output, {'nan_inf_to_errors': True})
 
-cell_format_table = workbook.add_format()
-cell_format_table.set_align('center')
-cell_format_table.set_align('top')
-cell_format_table.set_center_across()
+format_header = workbook.add_format()
+format_header.set_align('center')
+format_header.set_bg_color('silver')
+format_header.set_center_across()
 
-cell_format_line = workbook.add_format()
+format_header_right_border = workbook.add_format()
+format_header_right_border.set_align('center')
+format_header_right_border.set_bg_color('silver')
+format_header_right_border.set_right()
+
+format_value = workbook.add_format()
+
+format_value_right_border = workbook.add_format()
+format_value_right_border.set_right()
+
 
 # 1st sheet
 current_sheet = workbook.add_worksheet("SciexOS")
 current_column = 0
 for (excel_column_name, txt_column_name) in column_mapping:
     if excel_column_name != "-":
-        current_sheet.write(0, current_column, excel_column_name, cell_format_table)
+        current_sheet.write(0, current_column, excel_column_name, format_header)
         current_column += 1 
 current_line = 1
 for index in csv_data.index:
@@ -111,9 +117,9 @@ for index in csv_data.index:
         if excel_column_name != "-":
             value = csv_data[excel_column_name][index]
             if pd.isna(value):
-                current_sheet.write(current_line, current_column, "N/A", cell_format_line)
+                current_sheet.write(current_line, current_column, "N/A", format_value)
             else:
-                current_sheet.write(current_line, current_column, value, cell_format_line)
+                current_sheet.write(current_line, current_column, value, format_value)
             current_column += 1 
     current_line += 1
 current_sheet.freeze_panes(1, 0)
@@ -122,32 +128,39 @@ current_sheet.autofilter(0, 0, current_line,  current_column)
 # other sheets
 current_sheet = workbook.add_worksheet("Test")
 current_column = 0
-current_sheet.write(1, current_column, "Plate position", cell_format_table)
+current_sheet.write(1, current_column, "Plate position", format_header_right_border)
 current_column += 1
-current_sheet.write(1, current_column, "Sample Name", cell_format_table)
+current_sheet.write(1, current_column, "Sample Name", format_header_right_border)
 current_column += 1
-current_sheet.write(1, current_column, "Dilution Factor", cell_format_table)
+current_sheet.write(1, current_column, "Dilution Factor", format_header_right_border)
 current_column += 1
-sample_groups = csv_data['Component Group Name'].drop_duplicates().sort_values();
+sample_groups = csv_data['Component Group Name'].drop_duplicates().sort_values()
 for sample_group in sample_groups:
-    current_sheet.write(0, current_column, sample_group, cell_format_table)
+    current_sheet.merge_range(0, current_column, 0, current_column +1, sample_group, format_header_right_border)
     values = csv_data.loc[csv_data['Component Group Name'] == sample_group]
-    current_sheet.write(1, current_column, "IS | Heavy", cell_format_table)
+    current_sheet.write(1, current_column, "IS | Heavy", format_header)
     values_heavy = values.loc[csv_data['Component Name'].str.endswith("Heavy")]
     current_line = 2
     for index in values_heavy.index:
-        area = values_heavy["Area"][index]
-        current_sheet.write(current_line, current_column, area, cell_format_line)
+        value = values_heavy["Area"][index]
+        if pd.isna(value):
+            current_sheet.write(current_line, current_column, "N/A", format_value)
+        else:
+            current_sheet.write(current_line, current_column, value, format_value)
         current_line += 1
     current_column += 1 
-    current_sheet.write(1, current_column, "Light", cell_format_table)
+    current_sheet.write(1, current_column, "Light", format_header_right_border)
     values_light = values.loc[csv_data['Component Name'].str.endswith("Light")]
     current_line = 2
     for index in values_light.index:
-        area = values_light["Area"][index]
-        current_sheet.write(current_line, current_column, area, cell_format_line)
+        value = values_light["Area"][index]
+        if pd.isna(value):
+            current_sheet.write(current_line, current_column, "N/A", format_value_right_border)
+        else:
+            current_sheet.write(current_line, current_column, value, format_value_right_border)
         current_line += 1
     current_column += 1 
+current_sheet.freeze_panes(2, 3)
 
 # end
 workbook.close()
