@@ -119,6 +119,36 @@ for index in csv_data.index:
 current_sheet.freeze_panes(1, 0)
 current_sheet.autofilter(0, 0, current_line,  current_column)
 
+# other sheets
+current_sheet = workbook.add_worksheet("Test")
+current_column = 0
+current_sheet.write(1, current_column, "Plate position", cell_format_table)
+current_column += 1
+current_sheet.write(1, current_column, "Sample Name", cell_format_table)
+current_column += 1
+current_sheet.write(1, current_column, "Dilution Factor", cell_format_table)
+current_column += 1
+sample_groups = csv_data['Component Group Name'].drop_duplicates().sort_values();
+for sample_group in sample_groups:
+    current_sheet.write(0, current_column, sample_group, cell_format_table)
+    values = csv_data.loc[csv_data['Component Group Name'] == sample_group]
+    current_sheet.write(1, current_column, "IS | Heavy", cell_format_table)
+    values_heavy = values.loc[csv_data['Component Name'].str.endswith("Heavy")]
+    current_line = 2
+    for index in values_heavy.index:
+        area = values_heavy["Area"][index]
+        current_sheet.write(current_line, current_column, area, cell_format_line)
+        current_line += 1
+    current_column += 1 
+    current_sheet.write(1, current_column, "Light", cell_format_table)
+    values_light = values.loc[csv_data['Component Name'].str.endswith("Light")]
+    current_line = 2
+    for index in values_light.index:
+        area = values_light["Area"][index]
+        current_sheet.write(current_line, current_column, area, cell_format_line)
+        current_line += 1
+    current_column += 1 
+
 # end
 workbook.close()
 print("End of script")
