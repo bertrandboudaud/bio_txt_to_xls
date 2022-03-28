@@ -22,8 +22,9 @@
 
 import argparse
 import pathlib
-import os
-import datetime
+from numpy import NaN
+import pandas as pd
+import xlsxwriter
 
 parser = argparse.ArgumentParser(description='bio_txt_toxls, script to ease analisys from a csv file to excel file.',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -35,9 +36,89 @@ parser.add_argument('Input',
 parser.add_argument('Output',
                     type=pathlib.Path,
                     help='.xlsx file')
-parser.add_argument('Features',
-                    type=str,
-                    default="detect",
-                    help='List of features to expose')
+#parser.add_argument('Features',
+#                    type=str,
+#                    default="detect",
+#                    help='List of features to expose')
+
+column_mapping = [
+#   Excel column names              Txt file column names
+    ('Index',                       'Index'), 
+    ('Plate position',              '-'),
+    ('Sample Name',                 'Sample Name'),
+    ('Sample Type',                 'Sample Type'),
+    ('Component Name',              'Component Name'),
+    ('Component Group Name',        'Component Group Name'),
+    ('Component Type',              'Component Type'),
+    ('Dilution Factor',             'Dilution Factor'),
+    ('Expected RT',                 'Expected RT'),
+    ('Actual RT',                   'Retention Time'),
+    ('RT Delta (min)',              'Retention Time Delta (min)'),
+    ('Area',                        'Area'),
+    ('Height',                      'Height'),
+    ('Height Ratio',                'Height Ratio'),
+    ('Area / Height',               'Area / Height'),
+    ('Height Ratio',                'Height Ratio'),
+    ('Calculated Concentration',    'Calculated Concentration'),
+    ('Concentration acceptance',    'Concentration Acceptance'),
+    ('-',                           'Used'),
+    ('-',                           'Accuracy'),
+    ('-',                           'Accuracy Acceptance')
+]
 
 args = parser.parse_args()
+
+csv_data = pd.read_csv(args.Input, sep='\t', decimal=',')
+
+# rename columns
+renaming_mapping = {}
+for (excel_column_name, txt_column_name) in column_mapping:
+    if (excel_column_name != "-"):
+        renaming_mapping[txt_column_name] = excel_column_name
+csv_data.rename(columns=renaming_mapping,  inplace=True)
+print(csv_data)
+
+# add empty colums
+for (excel_column_name, txt_column_name) in column_mapping:
+    if (txt_column_name == "-"):
+        csv_data[excel_column_name] = " "
+
+dataTypeSeries = csv_data.dtypes
+print('Data type of each column of Dataframe :')
+print(dataTypeSeries)
+
+# write excel file
+workbook = xlsxwriter.Workbook(args.Output, {'nan_inf_to_errors': True})
+
+cell_format_table = workbook.add_format()
+cell_format_table.set_align('center')
+cell_format_table.set_align('top')
+cell_format_table.set_center_across()
+
+cell_format_line = workbook.add_format()
+
+# 1st sheet
+current_sheet = workbook.add_worksheet("SciexOS")
+current_column = 0
+for (excel_column_name, txt_column_name) in column_mapping:
+    if excel_column_name != "-":
+        current_sheet.write(0, current_column, excel_column_name, cell_format_table)
+        current_column += 1 
+current_line = 1
+for index in csv_data.index:
+    current_column = 0
+    for (excel_column_name, txt_column_name) in column_mapping:
+        if excel_column_name != "-":
+            value = csv_data[excel_column_name][index]
+            if pd.isna(value):
+                current_sheet.write(current_line, current_column, "N/A", cell_format_line)
+            else:
+                current_sheet.write(current_line, current_column, value, cell_format_line)
+            current_column += 1 
+    current_line += 1
+current_sheet.freeze_panes(1, 0)
+current_sheet.autofilter(0, 0, current_line,  current_column)
+
+# end
+workbook.close()
+print("End of script")
