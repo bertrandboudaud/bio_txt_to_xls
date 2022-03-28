@@ -135,11 +135,17 @@ current_column += 1
 current_sheet.write(1, current_column, "Dilution Factor", format_header_right_border)
 current_column += 1
 sample_groups = csv_data['Component Group Name'].drop_duplicates().sort_values()
+sample_names = None
 for sample_group in sample_groups:
     current_sheet.merge_range(0, current_column, 0, current_column +1, sample_group, format_header_right_border)
     values = csv_data.loc[csv_data['Component Group Name'] == sample_group]
     current_sheet.write(1, current_column, "IS | Heavy", format_header)
     values_heavy = values.loc[csv_data['Component Name'].str.endswith("Heavy")]
+    if sample_names is None:
+        sample_names = values_heavy["Sample Name"]
+    else:
+        if not (sample_names.values == values_heavy["Sample Name"].values).all():
+            raise Exception("Sample Name inconstency! aborting.")
     current_line = 2
     for index in values_heavy.index:
         value = values_heavy["Area"][index]
@@ -151,6 +157,11 @@ for sample_group in sample_groups:
     current_column += 1 
     current_sheet.write(1, current_column, "Light", format_header_right_border)
     values_light = values.loc[csv_data['Component Name'].str.endswith("Light")]
+    if sample_names is None:
+        sample_names = values_heavy["Sample Name"]
+    else:
+        if not (sample_names.values == values_heavy["Sample Name"].values).all():
+            raise Exception("Sample Name inconstency! aborting.")
     current_line = 2
     for index in values_light.index:
         value = values_light["Area"][index]
@@ -159,8 +170,17 @@ for sample_group in sample_groups:
         else:
             current_sheet.write(current_line, current_column, value, format_value_right_border)
         current_line += 1
-    current_column += 1 
+    current_column += 1
+current_line = 2
+for sample_name in sample_names:
+    current_sheet.write(current_line, 1, sample_name, format_value_right_border)
+    dilutions = csv_data.loc[csv_data['Sample Name'] == sample_name]["Dilution Factor"]
+    if not (dilutions == dilutions.iloc[0]).all():
+        raise Exception("Dilution Factor inconstency! aborting.")
+    current_sheet.write(current_line, 2, dilutions.iloc[0], format_value_right_border)
+    current_line += 1
 current_sheet.freeze_panes(2, 3)
+
 
 # end
 workbook.close()
