@@ -25,7 +25,34 @@ import pathlib
 import pandas as pd
 import xlsxwriter
 
-parser = argparse.ArgumentParser(description='bio_txt_toxls, script to ease analisys from a csv file to excel file.',
+sheet_templates = {
+    "quantitative" : {
+        "Height" : [
+            ("IS | Heavy", "Height", "Heavy", False),
+            ("Light", "Height", "Light", True),
+            ("Height Ratio", "Height Ratio", "Light", True),
+            ("Conc. µM", "Calculated Concentration", "Light", False),
+            ("Conc. Acceptance", "Concentration acceptance", "Light", True)
+            ],
+        "Area" : [
+            ("IS | Heavy", "Area", "Heavy", False),
+            ("Light", "Area", "Light", True)
+            ]
+    },
+    "qualitative" : {
+        "Height" : [
+            ("IS | Heavy", "Height", "Heavy", False),
+            ("Light", "Height", "Light", True),
+            ("Height Ratio", "Height Ratio", "Light", True)
+            ],
+        "Area" : [
+            ("IS | Heavy", "Area", "Heavy", False),
+            ("Light", "Area", "Light", True)
+            ]
+    }
+}
+
+parser = argparse.ArgumentParser(description='bio_txt_to_xls, script to ease analisys by exporting csv file to Excel file.',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 # Required arguments
@@ -35,6 +62,20 @@ parser.add_argument('Input',
 parser.add_argument('Output',
                     type=pathlib.Path,
                     help='.xlsx file')
+parser.add_argument('Template',
+                    type=str,
+                    default=next(iter(sheet_templates)),
+                    choices=tuple(sheet_templates),
+                    help='Template to use. The template defines sheets organization.')
+# optional arguments
+parser.add_argument('--Separator',
+                    type=str,
+                    default="tab",
+                    help='Separator used in the input file to separate each column (tab for tabulation).')
+parser.add_argument('--Decimal',
+                    type=str,
+                    default=",",
+                    help='Character used as decimal sign in the input file')
 
 column_mapping = [
 #   Excel column names           Txt file column names
@@ -65,7 +106,11 @@ column_mapping = [
 
 args = parser.parse_args()
 
-csv_data = pd.read_csv(args.Input, sep='\t', decimal=',')
+arg_separator  = args.Separator
+if arg_separator == "tab":
+    arg_separator = '\t'
+arg_decimal  = args.Decimal
+csv_data = pd.read_csv(args.Input, sep=arg_separator, decimal=arg_decimal)
 
 # rename columns
 renaming_mapping = {}
@@ -125,20 +170,6 @@ current_sheet.autofilter(0, 0, current_line,  current_column)
 
 # other sheets
 
-sheets_description = {
-    "Height" : [
-        ("IS | Heavy", "Height", "Heavy", False),
-        ("Light", "Height", "Light", True),
-        ("Height Ratio", "Height Ratio", "Light", True),
-        ("Conc. µM", "Calculated Concentration", "Light", False),
-        ("Conc. Acceptance", "Concentration acceptance", "Light", True)
-        ],
-    "Area" : [
-        ("IS | Heavy", "Area", "Heavy", False),
-        ("Light", "Area", "Light", True)
-        ]
-    }
-
 def writeFeature(current_sheet, current_column, title, separator, values, feature, light_or_heavy, sample_names):
     current_sheet.write(1, current_column, title, format_header_right_border)
     values_filtered = values.loc[csv_data['Component Name'].str.endswith(light_or_heavy)]
@@ -161,7 +192,8 @@ def writeFeature(current_sheet, current_column, title, separator, values, featur
         current_line += 1
     return sample_names
 
-for sheet_title in sheets_description:
+sheet_template = sheet_templates[args.Template]
+for sheet_title in sheet_template:
     current_sheet = workbook.add_worksheet(sheet_title)
     current_column = 0
     current_sheet.write(1, current_column, "Plate position", format_header_right_border)
@@ -170,12 +202,13 @@ for sheet_title in sheets_description:
     current_column += 1
     current_sheet.write(1, current_column, "Dilution Factor", format_header_right_border)
     current_column += 1
-    sample_groups = csv_data['Component Group Name'].drop_duplicates().sort_values()
+    sample_groups_non_sorted = csv_data['Component Group Name'].drop_duplicates()
+    sample_groups = sample_groups_non_sorted.iloc[sample_groups_non_sorted.str.lower().argsort()]
     sample_names = None
     for sample_group in sample_groups:        
         starting_group_column = current_column
         values = csv_data.loc[csv_data['Component Group Name'] == sample_group]
-        for (title, feature, light_or_heavy, separator) in sheets_description[sheet_title]:
+        for (title, feature, light_or_heavy, separator) in sheet_template[sheet_title]:
             sample_names = writeFeature(current_sheet, current_column, title, separator, values, feature, light_or_heavy, sample_names)
             current_column += 1 
         current_sheet.merge_range(0, starting_group_column, 0, current_column - 1, sample_group, format_header_right_border)
