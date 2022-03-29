@@ -80,28 +80,25 @@ for (excel_column_name, txt_column_name) in column_mapping:
     if (txt_column_name == "-"):
         csv_data[excel_column_name] = " "
 
-dataTypeSeries = csv_data.dtypes
-print('Data type of each column of Dataframe :')
-print(dataTypeSeries)
-
-# write excel file
+# create excel file
 workbook = xlsxwriter.Workbook(args.Output, {'nan_inf_to_errors': True})
 
+# cell styles
+#  headers
 format_header = workbook.add_format()
 format_header.set_align('center')
 format_header.set_bg_color('silver')
 format_header.set_center_across()
-
+#  headers with one border on the right
 format_header_right_border = workbook.add_format()
 format_header_right_border.set_align('center')
 format_header_right_border.set_bg_color('silver')
 format_header_right_border.set_right()
-
+#  standard cell
 format_value = workbook.add_format()
-
+#  standard cell with one border on the right
 format_value_right_border = workbook.add_format()
 format_value_right_border.set_right()
-
 
 # 1st sheet
 current_sheet = workbook.add_worksheet("SciexOS")
@@ -127,13 +124,23 @@ current_sheet.freeze_panes(1, 0)
 current_sheet.autofilter(0, 0, current_line,  current_column)
 
 # other sheets
-features = {
-    "Height" : {},
-    "Area" : {}
+
+sheets_description = {
+    "Height" : [
+        ("IS | Heavy", "Height", "Heavy", False),
+        ("Light", "Height", "Light", True),
+        ("Height Ratio", "Height Ratio", "Light", True),
+        ("Conc. µM", "Calculated Concentration", "Light", False),
+        ("Conc. Acceptance", "Concentration acceptance", "Light", True)
+        ],
+    "Area" : [
+        ("IS | Heavy", "Area", "Heavy", False),
+        ("Light", "Area", "Light", True)
+        ]
     }
 
-def writeFeature(current_sheet, current_column, values, feature, light_or_heavy, sample_names):
-    current_sheet.write(1, current_column, light_or_heavy, format_header_right_border)
+def writeFeature(current_sheet, current_column, title, separator, values, feature, light_or_heavy, sample_names):
+    current_sheet.write(1, current_column, title, format_header_right_border)
     values_filtered = values.loc[csv_data['Component Name'].str.endswith(light_or_heavy)]
     if sample_names is None:
         sample_names = values_filtered["Sample Name"]
@@ -143,15 +150,19 @@ def writeFeature(current_sheet, current_column, values, feature, light_or_heavy,
     current_line = 2
     for index in values_filtered.index:
         value = values_filtered[feature][index]
-        if pd.isna(value):
-            current_sheet.write(current_line, current_column, "N/A", format_value_right_border)
+        if separator:
+            cell_format = format_value_right_border
         else:
-            current_sheet.write(current_line, current_column, value, format_value_right_border)
+            cell_format = format_value
+        if pd.isna(value):
+            current_sheet.write(current_line, current_column, "N/A", cell_format)
+        else:
+            current_sheet.write(current_line, current_column, value, cell_format)
         current_line += 1
     return sample_names
 
-for feature in features:
-    current_sheet = workbook.add_worksheet(feature)
+for sheet_title in sheets_description:
+    current_sheet = workbook.add_worksheet(sheet_title)
     current_column = 0
     current_sheet.write(1, current_column, "Plate position", format_header_right_border)
     current_column += 1
@@ -164,10 +175,9 @@ for feature in features:
     for sample_group in sample_groups:        
         starting_group_column = current_column
         values = csv_data.loc[csv_data['Component Group Name'] == sample_group]
-        sample_names = writeFeature(current_sheet, current_column, values, feature, "Heavy", sample_names)
-        current_column += 1 
-        sample_names = writeFeature(current_sheet, current_column, values, feature, "Light", sample_names)
-        current_column += 1
+        for (title, feature, light_or_heavy, separator) in sheets_description[sheet_title]:
+            sample_names = writeFeature(current_sheet, current_column, title, separator, values, feature, light_or_heavy, sample_names)
+            current_column += 1 
         current_sheet.merge_range(0, starting_group_column, 0, current_column - 1, sample_group, format_header_right_border)
     current_line = 2
     for sample_name in sample_names:
@@ -178,7 +188,6 @@ for feature in features:
         current_sheet.write(current_line, 2, dilutions.iloc[0], format_value_right_border)
         current_line += 1
     current_sheet.freeze_panes(2, 3)
-
 
 # end
 workbook.close()
