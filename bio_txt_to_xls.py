@@ -127,60 +127,57 @@ current_sheet.freeze_panes(1, 0)
 current_sheet.autofilter(0, 0, current_line,  current_column)
 
 # other sheets
-current_sheet = workbook.add_worksheet("Test")
-current_column = 0
-current_sheet.write(1, current_column, "Plate position", format_header_right_border)
-current_column += 1
-current_sheet.write(1, current_column, "Sample Name", format_header_right_border)
-current_column += 1
-current_sheet.write(1, current_column, "Dilution Factor", format_header_right_border)
-current_column += 1
-sample_groups = csv_data['Component Group Name'].drop_duplicates().sort_values()
-sample_names = None
-for sample_group in sample_groups:
-    current_sheet.merge_range(0, current_column, 0, current_column +1, sample_group, format_header_right_border)
-    values = csv_data.loc[csv_data['Component Group Name'] == sample_group]
-    current_sheet.write(1, current_column, "IS | Heavy", format_header)
-    values_heavy = values.loc[csv_data['Component Name'].str.endswith("Heavy")]
+features = {
+    "Height" : {},
+    "Area" : {}
+    }
+
+def writeFeature(current_sheet, current_column, values, feature, light_or_heavy, sample_names):
+    current_sheet.write(1, current_column, light_or_heavy, format_header_right_border)
+    values_filtered = values.loc[csv_data['Component Name'].str.endswith(light_or_heavy)]
     if sample_names is None:
-        sample_names = values_heavy["Sample Name"]
+        sample_names = values_filtered["Sample Name"]
     else:
-        if not (sample_names.values == values_heavy["Sample Name"].values).all():
+        if not (sample_names.values == values_filtered["Sample Name"].values).all():
             raise Exception("Sample Name inconstency! aborting.")
     current_line = 2
-    for index in values_heavy.index:
-        value = values_heavy["Area"][index]
-        if pd.isna(value):
-            current_sheet.write(current_line, current_column, "N/A", format_value)
-        else:
-            current_sheet.write(current_line, current_column, value, format_value)
-        current_line += 1
-    current_column += 1 
-    current_sheet.write(1, current_column, "Light", format_header_right_border)
-    values_light = values.loc[csv_data['Component Name'].str.endswith("Light")]
-    if sample_names is None:
-        sample_names = values_heavy["Sample Name"]
-    else:
-        if not (sample_names.values == values_heavy["Sample Name"].values).all():
-            raise Exception("Sample Name inconstency! aborting.")
-    current_line = 2
-    for index in values_light.index:
-        value = values_light["Area"][index]
+    for index in values_filtered.index:
+        value = values_filtered[feature][index]
         if pd.isna(value):
             current_sheet.write(current_line, current_column, "N/A", format_value_right_border)
         else:
             current_sheet.write(current_line, current_column, value, format_value_right_border)
         current_line += 1
+    return sample_names
+
+for feature in features:
+    current_sheet = workbook.add_worksheet(feature)
+    current_column = 0
+    current_sheet.write(1, current_column, "Plate position", format_header_right_border)
     current_column += 1
-current_line = 2
-for sample_name in sample_names:
-    current_sheet.write(current_line, 1, sample_name, format_value_right_border)
-    dilutions = csv_data.loc[csv_data['Sample Name'] == sample_name]["Dilution Factor"]
-    if not (dilutions == dilutions.iloc[0]).all():
-        raise Exception("Dilution Factor inconstency! aborting.")
-    current_sheet.write(current_line, 2, dilutions.iloc[0], format_value_right_border)
-    current_line += 1
-current_sheet.freeze_panes(2, 3)
+    current_sheet.write(1, current_column, "Sample Name", format_header_right_border)
+    current_column += 1
+    current_sheet.write(1, current_column, "Dilution Factor", format_header_right_border)
+    current_column += 1
+    sample_groups = csv_data['Component Group Name'].drop_duplicates().sort_values()
+    sample_names = None
+    for sample_group in sample_groups:        
+        starting_group_column = current_column
+        values = csv_data.loc[csv_data['Component Group Name'] == sample_group]
+        sample_names = writeFeature(current_sheet, current_column, values, feature, "Heavy", sample_names)
+        current_column += 1 
+        sample_names = writeFeature(current_sheet, current_column, values, feature, "Light", sample_names)
+        current_column += 1
+        current_sheet.merge_range(0, starting_group_column, 0, current_column - 1, sample_group, format_header_right_border)
+    current_line = 2
+    for sample_name in sample_names:
+        current_sheet.write(current_line, 1, sample_name, format_value_right_border)
+        dilutions = csv_data.loc[csv_data['Sample Name'] == sample_name]["Dilution Factor"]
+        if not (dilutions == dilutions.iloc[0]).all():
+            raise Exception("Dilution Factor inconstency! aborting.")
+        current_sheet.write(current_line, 2, dilutions.iloc[0], format_value_right_border)
+        current_line += 1
+    current_sheet.freeze_panes(2, 3)
 
 
 # end
