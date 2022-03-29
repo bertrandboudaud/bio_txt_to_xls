@@ -22,10 +22,8 @@
 
 import argparse
 import pathlib
-from numpy import NaN
 import pandas as pd
 import xlsxwriter
-import copy
 
 parser = argparse.ArgumentParser(description='bio_txt_toxls, script to ease analisys from a csv file to excel file.',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -39,28 +37,30 @@ parser.add_argument('Output',
                     help='.xlsx file')
 
 column_mapping = [
-#   Excel column names              Txt file column names
-    ('Index',                       'Index'), 
-    ('Plate position',              '-'),
-    ('Sample Name',                 'Sample Name'),
-    ('Sample Type',                 'Sample Type'),
-    ('Component Name',              'Component Name'),
-    ('Component Group Name',        'Component Group Name'),
-    ('Component Type',              'Component Type'),
-    ('Dilution Factor',             'Dilution Factor'),
-    ('Expected RT',                 'Expected RT'),
-    ('Actual RT',                   'Retention Time'),
-    ('RT Delta (min)',              'Retention Time Delta (min)'),
-    ('Area',                        'Area'),
-    ('Height',                      'Height'),
-    ('Height Ratio',                'Height Ratio'),
-    ('Area / Height',               'Area / Height'),
-    ('Height Ratio',                'Height Ratio'),
-    ('Calculated Concentration',    'Calculated Concentration'),
-    ('Concentration acceptance',    'Concentration Acceptance'),
-    ('-',                           'Used'),
-    ('-',                           'Accuracy'),
-    ('-',                           'Accuracy Acceptance')
+#   Excel column names           Txt file column names
+    ('Index',                    'Index'), 
+    ('Plate position',           '-'),
+    ('Sample Name',              'Sample Name'),
+    ('Sample Type',              'Sample Type'),
+    ('Component Name',           'Component Name'),
+    ('Component Group Name',     'Component Group Name'),
+    ('Component Type',           'Component Type'),
+    ('Dilution Factor',          'Dilution Factor'),
+    ('Expected RT',              'Expected RT'),
+    ('Actual RT',                'Retention Time'),
+    ('RT Delta (min)',           'Retention Time Delta (min)'),
+    ('Area',                     'Area'),
+    ('Height',                   'Height'),
+    ('Height Ratio',             'Height Ratio'),
+    ('Area / Height',            'Area / Height'),
+    ('Height Ratio',             'Height Ratio'),
+    ('Calculated Concentration', 'Calculated Concentration'),
+    ('Concentration acceptance', 'Concentration Acceptance'),
+    ('-',                        'Used'),
+    ('-',                        'Accuracy'),
+    ('-',                        'Accuracy Acceptance'),
+    ('Peak Width Confidence',    'AutoPeak Peak Width Confidence' ),
+    ('Peak Saturated',           'AutoPeak Saturated')
 ]
 
 args = parser.parse_args()
@@ -107,14 +107,15 @@ format_value_right_border.set_right()
 current_sheet = workbook.add_worksheet("SciexOS")
 current_column = 0
 for (excel_column_name, txt_column_name) in column_mapping:
-    if excel_column_name != "-":
+    if excel_column_name != "-" and excel_column_name in csv_data:
         current_sheet.write(0, current_column, excel_column_name, format_header)
         current_column += 1 
 current_line = 1
 for index in csv_data.index:
     current_column = 0
     for (excel_column_name, txt_column_name) in column_mapping:
-        if excel_column_name != "-":
+        test = excel_column_name in csv_data
+        if excel_column_name != "-" and excel_column_name in csv_data:
             value = csv_data[excel_column_name][index]
             if pd.isna(value):
                 current_sheet.write(current_line, current_column, "N/A", format_value)
@@ -184,4 +185,4 @@ current_sheet.freeze_panes(2, 3)
 
 # end
 workbook.close()
-print("End of script")
+print("File written to " + str(args.Output))
