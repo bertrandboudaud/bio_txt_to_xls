@@ -38,3 +38,7 @@ usage: argmark [-h] [--Separator SEPARATOR] [--Decimal DECIMAL]
 ## Example of use:
 
 ```python.exe c:\Users\bertr\bio_txt_to_xls\bio_txt_to_xls.py C:/Users/bertr/example/QualitativeAnalysis_export.txt C:/Users/bertr/example/Qualitative_output.xlsx qualitative```
+
+## Using Docker:
+
+```docker run -v c:\Users\bertr\my_files:/tmp bio_txt_to_xls /tmp/QuantitativeAnalysis_export.txt /tmp/QuantitativeAnalysis_output_docker.xlsx quantitative```
