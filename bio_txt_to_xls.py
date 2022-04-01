@@ -26,9 +26,9 @@ import pandas as pd
 import xlsxwriter
 
 sheet_templates = {
-    "quantitative" : {
-        "Height" : [
-            ("IS | Heavy", "Height", "Heavy", False),
+    "quantitative" : {        # name of the template
+        "Height" : [          # name of the Excel sheet
+            ("IS | Heavy", "Height", "Heavy", False), # (name of the column displayed in the sheet, Value, Heavy or Light, True = Display a separator bar)
             ("Light", "Height", "Light", True),
             ("Height Ratio", "Height Ratio", "Light", True),
             ("Conc. µM", "Calculated Concentration", "Light", False),
