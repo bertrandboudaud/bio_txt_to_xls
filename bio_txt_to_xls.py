@@ -170,31 +170,30 @@ current_sheet.autofilter(0, 0, current_line,  current_column)
 
 # other sheets
 
-def writeFeature(current_sheet, current_column, title, separator, values, feature, light_or_heavy, sample_names):
+def writeFeature(current_sheet, current_column, title, separator, values, feature, light_or_heavy, sample_names_to_line):
     current_sheet.write(1, current_column, title, format_header_right_border)
     values_filtered = values.loc[csv_data['Component Name'].str.endswith(light_or_heavy)]
-    if sample_names is None:
-        sample_names = values_filtered["Sample Name"]
-    else:
-        if not (sample_names.values == values_filtered["Sample Name"].values).all():
-            raise Exception("Sample Name inconstency! aborting.")
-    current_line = 2
+    written_lines = []
     for index in values_filtered.index:
+        sample_name = values_filtered["Sample Name"][index]
+        line = sample_names_to_line[sample_name]
+        if line in written_lines:
+            raise Exception("Sample Name '{0}' exists multiple time for the same component. Fix input file.".format(sample_name))
         value = values_filtered[feature][index]
         if separator:
             cell_format = format_value_right_border
         else:
             cell_format = format_value
         if pd.isna(value):
-            current_sheet.write(current_line, current_column, "N/A", cell_format)
+            current_sheet.write(line, current_column, "N/A", cell_format)
         else:
-            current_sheet.write(current_line, current_column, value, cell_format)
-        current_line += 1
-    return sample_names
+            current_sheet.write(line, current_column, value, cell_format)
+        written_lines.append(line)
 
 sheet_template = sheet_templates[args.Template]
 for sheet_title in sheet_template:
     current_sheet = workbook.add_worksheet(sheet_title)
+    # left header
     current_column = 0
     current_sheet.write(1, current_column, "Plate position", format_header_right_border)
     current_column += 1
@@ -202,16 +201,8 @@ for sheet_title in sheet_template:
     current_column += 1
     current_sheet.write(1, current_column, "Dilution Factor", format_header_right_border)
     current_column += 1
-    sample_groups_non_sorted = csv_data['Component Group Name'].drop_duplicates()
-    sample_groups = sample_groups_non_sorted.iloc[sample_groups_non_sorted.str.lower().argsort()]
-    sample_names = None
-    for sample_group in sample_groups:        
-        starting_group_column = current_column
-        values = csv_data.loc[csv_data['Component Group Name'] == sample_group]
-        for (title, feature, light_or_heavy, separator) in sheet_template[sheet_title]:
-            sample_names = writeFeature(current_sheet, current_column, title, separator, values, feature, light_or_heavy, sample_names)
-            current_column += 1 
-        current_sheet.merge_range(0, starting_group_column, 0, current_column - 1, sample_group, format_header_right_border)
+    sample_names = csv_data['Sample Name'].drop_duplicates()
+    sample_name_to_line = {}
     current_line = 2
     for sample_name in sample_names:
         current_sheet.write(current_line, 1, sample_name, format_value_right_border)
@@ -219,7 +210,18 @@ for sheet_title in sheet_template:
         if not (dilutions == dilutions.iloc[0]).all():
             raise Exception("Dilution Factor inconstency! aborting.")
         current_sheet.write(current_line, 2, dilutions.iloc[0], format_value_right_border)
+        sample_name_to_line[sample_name] = current_line
         current_line += 1
+    # sample groups
+    sample_groups_non_sorted = csv_data['Component Group Name'].drop_duplicates()
+    sample_groups = sample_groups_non_sorted.iloc[sample_groups_non_sorted.str.lower().argsort()]
+    for sample_group in sample_groups:        
+        starting_group_column = current_column
+        values = csv_data.loc[csv_data['Component Group Name'] == sample_group]
+        for (title, feature, light_or_heavy, separator) in sheet_template[sheet_title]:
+            writeFeature(current_sheet, current_column, title, separator, values, feature, light_or_heavy, sample_name_to_line)
+            current_column += 1 
+        current_sheet.merge_range(0, starting_group_column, 0, current_column - 1, sample_group, format_header_right_border)
     current_sheet.freeze_panes(2, 3)
 
 # end
