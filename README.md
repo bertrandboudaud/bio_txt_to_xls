@@ -22,7 +22,7 @@ XlsWriter:
 
 
 ```bash
-usage: argmark [-h] [--Separator SEPARATOR] [--Decimal DECIMAL]
+usage: bio_txt_to_xls.py [-h] [--Separator SEPARATOR] [--Decimal DECIMAL]
                Input Output {quantitative,qualitative}
 
 ```
